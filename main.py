@@ -75,8 +75,3 @@ setattr(laminat,"flagsSP",[1,0,0,0,0,0])
 setattr(laminat,"stress",[50,0,0,0,0,0])
 laminat.stressesDistribution()
 laminat.checkYield()
-
-
-
-
-
