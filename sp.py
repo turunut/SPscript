@@ -1,27 +1,6 @@
 import numpy as np
 
 def SP_ComputeCompositeCT(laminat):
-      # Subroutine auxiliar variables
-      
-      #Real(8) :: CTCompoPP(a%np,a%np),  & ! Composite stiffness - parallel-parallel
-      #           CTCompoPS(a%np,a%ns),  & ! Composite stiffness - parallel-serial
-      #           CTCompoSP(a%ns,a%np),  & ! Composite stiffness - serial-parallel 
-      #           CTCompoSS(a%ns,a%ns)     ! Composite stiffness - serial-serial
-      #
-      #Real(8) :: CTFibrePP(a%np,a%np),  & ! Fibres stiffness - parallel-parallel
-      #           CTFibrePS(a%np,a%ns),  & ! Fibres stiffness - parallel-serial
-      #           CTFibreSP(a%ns,a%np),  & ! Fibres stiffness - serial-parallel 
-      #           CTFibreSS(a%ns,a%ns)     ! Fibres stiffness - serial-serial
-      #
-      #Real(8) :: CTMatrxPP(a%np,a%np),  & ! Matrix stiffness - parallel-parallel
-      #           CTMatrxPS(a%np,a%ns),  & ! Matrix stiffness - parallel-serial
-      #           CTMatrxSP(a%ns,a%np),  & ! Matrix stiffness - serial-parallel 
-      #           CTMatrxSS(a%ns,a%ns)     ! Matrix stiffness - serial-serial
-      #
-      #Real(8), allocatable :: arrayA(:,:), AI(:,:) ! Auxiliar Matrices
-
-      #allocate( arrayA(a%ns,a%ns) )
-
       # Calculate matrix serial/parallel matrices
       PP = getattr(laminat, "PP")
       PS = getattr(laminat, "PS")
@@ -69,20 +48,6 @@ def SP_ComputeCompositeCT(laminat):
       return C
       
 def computeArrayA(laminat):
-    #real(rp), pointer :: CTMatrx(:,:)
-    #real(rp), pointer :: CTFibre(:,:)                           
-                 
-    #! Subroutine auxiliar variables
-
-    #Real(8) :: kMatrx, & ! Matrix volumetric participation
-    #           kFibre, & ! Fibres volumetric particiation
-    #           deter     ! Dummy argument for matrix inversion subroutine
-
-    #Real(8) :: CTMatrxSS(a%ns,a%ns), & ! Matrix stiffness - serial-serial
-    #           CTFibreSS(a%ns,a%ns)    ! Fibres stiffness - serial-serial
-    #
-    #Real(8), allocatable :: arrayA(:,:), AI(:,:)
-
     #allocate( AI(a%ns,a%ns) )
     PP = getattr(laminat, "PP")
     PS = getattr(laminat, "PS")
@@ -123,3 +88,92 @@ def computeArrayA(laminat):
             arrayA[conectivitats[i],conectivitats[j]] = arrayAp[i,j]
 
     return arrayA
+
+def computeStrainMatrxFibreSP(laminat):
+    PP = getattr(laminat, "PP")
+    PS = getattr(laminat, "PS")
+
+    CTMatrx = laminat.getMatrxCT()
+    CTFibre = laminat.getFibreCT()
+                  
+    kMatrx = getattr(laminat,"matrxPart")
+    kFibre = getattr(laminat,"fibrePart")
+      
+    # Obtenemos las deformaciones del compuesto
+    LayerStrain_t = getattr(laminat,"strain")
+    
+    ## Obtain Previous converged strains and constitutive tensors
+    MatrxStrain_0 = np.zeros(6) #a%GP(igaus)%MatrxStrain_conv ! Matrix strains
+    FibreStrain_0 = np.zeros(6) #a%GP(igaus)%FibreStrain_conv ! Fibre  strains
+    
+    # Eval parallel fiber strains before loop
+    LayerStrainP_t = np.dot(             PP , LayerStrain_t)
+    LayerStrainS_t = np.dot(np.transpose(PS), LayerStrain_t) 
+    #MatrxStrainP_t = LayerStrainP_t 
+    FibreStrainP_t = LayerStrainP_t 
+    
+    ## Obtain matrix and fiber parallel and serial strains
+    MatrxStrainP_0 = np.dot(             PP, MatrxStrain_0)
+    MatrxStrainS_0 = np.dot(np.transpose(PS),MatrxStrain_0)
+    
+    FibreStrainP_0 = np.dot(             PP, FibreStrain_0)
+    FibreStrainS_0 = np.dot(np.transpose(PS),FibreStrain_0)
+    
+    ## Obtain previous strains in the composite
+    CompoStrainP_0 = MatrxStrainP_0
+    CompoStrainS_0 = kMatrx*MatrxStrainS_0 + kFibre*FibreStrainS_0
+    CompoStrain_0  = np.dot(np.transpose(PP),CompoStrainP_0) + \
+                     np.dot(             PS ,CompoStrainS_0)
+    
+    # Obtain the strain's increment in current step    
+    CompoStrain_n  = LayerStrain_t - 0.0 # LayerStrain_conv
+    CompoStrainP_n = np.dot(             PP, CompoStrain_n)
+    CompoStrainS_n = np.dot(np.transpose(PS),CompoStrain_n)
+    
+    # Obtain some parallel and serial matrices, 
+    # required to calculate matrix strain increment
+    CTMatrxSS = np.dot( np.transpose(PS), np.dot( CTMatrx, PP  ))
+    CTFibreSS = np.dot( np.transpose(PS), np.dot( CTFibre, PS  ))
+    CTMatrxSP = np.dot( np.transpose(PS), np.dot( CTMatrx, np.transpose(PP) ))
+    CTFibreSP = np.dot( np.transpose(PS), np.dot( CTFibre, np.transpose(PP) ))
+    
+    ArrayA = computeArrayA(laminat)
+    # Calculate matrix parallel and serial strain increment
+    MatrxStrainP_n = CompoStrainP_n
+    MatrxStrainS_n = np.dot( ArrayA, \
+                     ( np.dot(CTFibreSS,CompoStrainS_n) + \
+                     ( kFibre * np.dot( CTFibreSP - CTMatrxSP,CompoStrainP_n)) ))
+                    
+    # Recompose strains to obtain prediction of matrix strain
+    MatrxStrain_n = np.dot( np.transpose(PP), MatrxStrainP_n ) + \
+                    np.dot(              PS , MatrxStrainS_n )
+     
+    MatrxStrain_t = MatrxStrain_0 + MatrxStrain_n
+       
+    # Starts loop to find correct matrix and fibre serie deformation
+        
+    MatrxStrainP_t = np.dot(             PP ,MatrxStrain_t) # Matrix parallel strains
+    MatrxStrainS_t = np.dot(np.transpose(PS),MatrxStrain_t) # Matrix serial strains
+    
+    FibreStrainS_t = ( (1/kFibre) * LayerStrainS_t ) - ( (kMatrx/kFibre) * MatrxStrainS_t ) # Fibre serial strains
+     
+    FibreStrain_t  = np.dot( np.transpose(PP), FibreStrainP_t ) + \
+                     np.dot(              PS , FibreStrainS_t )  
+     
+    # Compute MATRIX stresses (in local direction)
+    MatrxStrain_n = MatrxStrain_t - MatrxStrain_0
+    
+    #call VoigtOpe%GetGradDispFromGpStrain( MatrxStrain_t, gradDispMatrx )         
+    #call a%EMDs(1)%p%ComputeHistoryAndConstitutiveTensor( igaus, gradDispMatrx )
+    #call a%EMDs(1)%p%ComputeStress( igaus, gradDispMatrx )
+    #call a%EMDs(1)%p%GetStressTensorPointer( igaus, MatrxStress_t )
+     
+    # Compute FIBRE stresses (in local direction)
+    FibreStrain_n = FibreStrain_t - FibreStrain_0
+    
+    #call VoigtOpe%GetGradDispFromGpStrain( FibreStrain_t, gradDispFibre )         
+    #call a%EMDs(2)%p%ComputeHistoryAndConstitutiveTensor( igaus, gradDispFibre )
+    #call a%EMDs(2)%p%ComputeStress( igaus, gradDispFibre )
+    #call a%EMDs(2)%p%GetStressTensorPointer( igaus, FibreStress_t )
+
+    return [MatrxStrain_t, FibreStrain_t]
