@@ -104,9 +104,12 @@ class Laminate:
         X = []
         Y = []
         for angle in np.arange(0,360.1,0.1):
+            dirX = 0
+            dirY = 1
+
             stress = np.zeros(6)
-            stress[0] = math.cos(math.radians(angle))
-            stress[3] = math.sin(math.radians(angle))
+            stress[dirX] = math.cos(math.radians(angle))
+            stress[dirY] = math.sin(math.radians(angle))
             
             self.stress = stress
             laminat.stressesDistribution()
@@ -124,8 +127,8 @@ class Laminate:
                                        TensionUltimaS[4], \
                                        TensionUltimaS[5], ])
 
-            X.append( TensionUltima[0] )
-            Y.append( TensionUltima[3] )
+            X.append( TensionUltima[dirX] )
+            Y.append( TensionUltima[dirY] )
 
             #X.append( self.stress[0]*alphaMatrx )
             #Y.append( self.stress[3]*alphaMatrx )
