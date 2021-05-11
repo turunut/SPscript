@@ -103,10 +103,10 @@ class Laminate:
     def computePoint(self):
         X = []
         Y = []
-        for angle in np.arange(0,90.1,0.1):
+        for angle in np.arange(0,360.1,0.1):
             stress = np.zeros(6)
             stress[0] = math.cos(math.radians(angle))
-            stress[1] = math.sin(math.radians(angle))
+            stress[3] = math.sin(math.radians(angle))
             
             self.stress = stress
             laminat.stressesDistribution()
@@ -125,12 +125,12 @@ class Laminate:
                                        TensionUltimaS[5], ])
 
             X.append( TensionUltima[0] )
-            Y.append( TensionUltima[1] )
+            Y.append( TensionUltima[3] )
 
-            X.append( self.stress[0]*alphaMatrx )
-            Y.append( self.stress[1]*alphaMatrx )
-            X.append( self.stress[0]*alphaFibre )
-            Y.append( self.stress[1]*alphaFibre )
+            #X.append( self.stress[0]*alphaMatrx )
+            #Y.append( self.stress[3]*alphaMatrx )
+            #X.append( self.stress[0]*alphaFibre )
+            #Y.append( self.stress[3]*alphaFibre )
 
             #if alphaMatrx < alphaFibre: # Alpha mas pequeña es que rompe antes
             #    self.stress = stress*alphaMatrx
@@ -148,8 +148,8 @@ class Laminate:
             #    Y.append( self.stress[1]*alphaFibre )
 
         plt.figure(figsize=(10,10))
-        plt.xlim([0.0,1200.0])
-        plt.ylim([0.0,50.0])
+        #plt.xlim([0.0,1000.0])
+        plt.ylim([-50.0,50.0])
         plt.plot(X,Y,'o',color='black')
         
 
