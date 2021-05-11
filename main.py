@@ -14,14 +14,14 @@ class SimpleMaterial:
     def computeYC(self):
         return self.YC.equivalentStress(self.stress)
 
-    def computeStressFail(self):
+    def computeEquivalentStress(self):
         eq = self.computeYC()
-        alpha = (self.threshold / eq)
-        
-        if alpha < 1:
-            print("Tensiones de entrada muy altas")
-        
-        return eq*alpha
+        return eq
+
+    def computeAlpha(self):
+        alpha = (self.threshold / self.computeYC())
+
+        return alpha
 
 
 class yieldCriterion:
@@ -47,7 +47,10 @@ class VonMisses(yieldCriterion):
     
     def equivalentStress(self,stress):
         S = stress
-        eqStress = math.sqrt(0.5*((S[0]-S[1])**2+(S[1]-S[2])**2+(S[2]-S[0])**2)+3*(S[3]+S[4]+S[5]))
+        eqStress = math.sqrt( ( (S[0]-S[1])**2 + \
+                                (S[1]-S[2])**2 + \
+                                (S[2]-S[0])**2 + \
+                                6*(S[3]**2+S[4]*22+S[5]*22) )/2 )
         return eqStress
 
 class Laminate:
@@ -100,37 +103,58 @@ class Laminate:
     def computePoint(self):
         X = []
         Y = []
-        for angle in range(0,90):
+        for angle in np.arange(0,360.1,0.1):
             stress = np.zeros(6)
             stress[0] = math.cos(math.radians(angle))
             stress[1] = math.sin(math.radians(angle))
             
-            setattr(laminat,"stress",stress)
+            self.stress = stress
             laminat.stressesDistribution()
             
-            pointMatrx = self.matrx.computeStressFail()
-            pointFibre = self.fibre.computeStressFail()
-            if pointMatrx > pointFibre:
-                X.append( math.cos(math.radians(angle))*pointMatrx )
-                Y.append( math.sin(math.radians(angle))*pointMatrx )
-            else:
-                X.append( math.cos(math.radians(angle))*pointFibre )
-                Y.append( math.sin(math.radians(angle))*pointFibre )
+            alphaMatrx = self.matrx.computeAlpha()
+            alphaFibre = self.fibre.computeAlpha()
+
+            TensionUltima = np.array([ (stress*alphaFibre*self.fibrePart)[0], \
+                                       (stress*alphaMatrx)[1], \
+                                       (stress*alphaMatrx)[2], \
+                                       (stress*alphaMatrx)[3], \
+                                       (stress*alphaMatrx)[4], \
+                                       (stress*alphaMatrx)[5], ])
+
+            X.append( TensionUltima[0] )
+            Y.append( TensionUltima[1] )
+
+            #if alphaMatrx < alphaFibre: # Alpha mas pequeña es que rompe antes
+            #    self.stress = stress*alphaMatrx
+            #    laminat.stressesDistribution()
+            #    alphaMatrx = self.matrx.computeAlpha()
+            #    alphaFibre = self.fibre.computeAlpha()
+            #    X.append( self.stress[0]*alphaMatrx )
+            #    Y.append( self.stress[1]*alphaMatrx )
+            #else:
+            #    self.stress = stress*alphaFibre
+            #    laminat.stressesDistribution()
+            #    alphaMatrx = self.matrx.computeAlpha()
+            #    alphaFibre = self.fibre.computeAlpha()
+            #    X.append( self.stress[0]*alphaFibre )
+            #    Y.append( self.stress[1]*alphaFibre )
 
         plt.figure(figsize=(10,10))
-        plt.plot(X,Y)
+        #plt.xlim([-400,400])
+        #plt.ylim([-100,100])
+        plt.plot(X,Y,'ro-')
         
 
-matrx = SimpleMaterial("VonMisses", 100.0)
+matrx = SimpleMaterial("VonMisses", 30.0)
 E = 4670
 v = 0.38
 G = E/(2*(1+v))
-Dinv = np.array([[1/E,-v/E,-v/E,   0.0,   0.0,   0.0], \
-                 [-v/E,1/E,-v/E,   0.0,   0.0,   0.0], \
-                 [-v/E,-v/E,1/E,   0.0,   0.0,   0.0], \
-                 [   0.0,   0.0,   0.0,1/G,   0.0,   0.0], \
-                 [   0.0,   0.0,   0.0,   0.0,1/G,   0.0], \
-                 [   0.0,   0.0,   0.0,   0.0,   0.0,1/G]])
+Dinv = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
+                 [ -v/E,  1/E, -v/E, 0.0, 0.0, 0.0], \
+                 [ -v/E, -v/E,  1/E, 0.0, 0.0, 0.0], \
+                 [  0.0,  0.0,  0.0, 1/G, 0.0, 0.0], \
+                 [  0.0,  0.0,  0.0, 0.0, 1/G, 0.0], \
+                 [  0.0,  0.0,  0.0, 0.0, 0.0, 1/G]])
 setattr(matrx,"D",np.linalg.inv(Dinv))
 
 fibre = SimpleMaterial("VonMisses", 2000.0)
@@ -146,5 +170,4 @@ Dinv = np.array([[1/E,-v/E,-v/E,   0.0,   0.0,   0.0], \
 setattr(fibre,"D",np.linalg.inv(Dinv))
 
 laminat = Laminate(matrx,fibre,[1,0,0,0,0,0])
-#laminat.checkYield()
 laminat.computePoint()
