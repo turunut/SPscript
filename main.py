@@ -103,7 +103,7 @@ class Laminate:
     def computePoint(self):
         X = []
         Y = []
-        for angle in np.arange(0,360.1,0.1):
+        for angle in np.arange(0,90.1,0.1):
             stress = np.zeros(6)
             stress[0] = math.cos(math.radians(angle))
             stress[1] = math.sin(math.radians(angle))
@@ -114,15 +114,23 @@ class Laminate:
             alphaMatrx = self.matrx.computeAlpha()
             alphaFibre = self.fibre.computeAlpha()
 
-            TensionUltima = np.array([ (stress*alphaFibre*self.fibrePart)[0], \
-                                       (stress*alphaMatrx)[1], \
-                                       (stress*alphaMatrx)[2], \
-                                       (stress*alphaMatrx)[3], \
-                                       (stress*alphaMatrx)[4], \
-                                       (stress*alphaMatrx)[5], ])
+            TensionUltimaP = (stress*alphaFibre*self.fibrePart)
+            TensionUltimaS = (stress*alphaMatrx)
+
+            TensionUltima = np.array([ TensionUltimaP[0], \
+                                       TensionUltimaS[1], \
+                                       TensionUltimaS[2], \
+                                       TensionUltimaS[3], \
+                                       TensionUltimaS[4], \
+                                       TensionUltimaS[5], ])
 
             X.append( TensionUltima[0] )
             Y.append( TensionUltima[1] )
+
+            X.append( self.stress[0]*alphaMatrx )
+            Y.append( self.stress[1]*alphaMatrx )
+            X.append( self.stress[0]*alphaFibre )
+            Y.append( self.stress[1]*alphaFibre )
 
             #if alphaMatrx < alphaFibre: # Alpha mas pequeña es que rompe antes
             #    self.stress = stress*alphaMatrx
@@ -140,9 +148,9 @@ class Laminate:
             #    Y.append( self.stress[1]*alphaFibre )
 
         plt.figure(figsize=(10,10))
-        #plt.xlim([-400,400])
-        #plt.ylim([-100,100])
-        plt.plot(X,Y,'ro-')
+        plt.xlim([0.0,1200.0])
+        plt.ylim([0.0,50.0])
+        plt.plot(X,Y,'o',color='black')
         
 
 matrx = SimpleMaterial("VonMisses", 30.0)
