@@ -151,6 +151,8 @@ class Laminate:
         #plt.xlim([0.0,1000.0])
         plt.ylim([-50.0,50.0])
         plt.plot(X,Y,'o',color='black')
+        plt.grid()
+        plt.show()
         
 
 matrx = SimpleMaterial("VonMisses", 30.0)
