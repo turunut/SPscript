@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 class SimpleMaterial:
     def __init__(self, criterionType, thresholdValue):
         self.stress = np.zeros(6)
+        self.strain = np.zeros(6)
+        self.E = None
+        self.v = None
         self.D      = None
         self.YC = yieldCriterion.factory(criterionType)
         self.threshold = thresholdValue
@@ -27,6 +30,7 @@ class SimpleMaterial:
 class yieldCriterion:
     def factory(type):
         if type == "VonMisses":     return VonMisses()
+        if type == "MaxStrain":            return MaxStrain()
         if type == "Nonee":            return Nonee()
         assert 0, "Bad shape creation: " + type
     factory = staticmethod(factory)
@@ -50,7 +54,15 @@ class VonMisses(yieldCriterion):
         eqStress = math.sqrt( ( (S[0]-S[1])**2 + \
                                 (S[1]-S[2])**2 + \
                                 (S[2]-S[0])**2 + \
-                                6*(S[3]**2+S[4]*22+S[5]*22) )/2 )
+                                6*(S[3]**2+S[4]**2+S[5]**2) )/2 )
+        return eqStress
+
+class MaxStrain(yieldCriterion):
+    def __init__(self):
+        super(MaxStrain, self).__init__()
+    
+    def equivalentStress(self,stress):
+        eqStress = stress[0]-0.22*(stress[1]+stress[2])
         return eqStress
 
 class Laminate:
@@ -82,6 +94,9 @@ class Laminate:
         setattr(self.matrx, "stress", np.dot(getattr(self.matrx,"D"),np.transpose(MatrxStrain_t)) )
         setattr(self.fibre, "stress", np.dot(getattr(self.fibre,"D"),np.transpose(FibreStrain_t)) )
 
+        setattr(self.matrx, "strain", MatrxStrain_t )
+        setattr(self.fibre, "strain", FibreStrain_t )
+
         verificationStressC.append(getattr(self.matrx,"stress")*self.matrxPart + getattr(self.fibre,"stress")*self.fibrePart)
         # verification
 
@@ -103,7 +118,13 @@ class Laminate:
     def computePoint(self):
         X = []
         Y = []
-        for angle in np.arange(0,360.1,0.1):
+        aa = []
+        bb = []
+        cc = []
+        dd = []
+        print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
+        for angle in np.arange(0,91.0,1.0):
+            #angle = 90-angle
             dirX = 0
             dirY = 1
 
@@ -117,18 +138,42 @@ class Laminate:
             alphaMatrx = self.matrx.computeAlpha()
             alphaFibre = self.fibre.computeAlpha()
 
-            TensionUltimaP = (stress*alphaFibre*self.fibrePart)
+            #TensionUltimaP = (getattr(self.fibre,"stress")*alphaFibre*self.fibrePart+getattr(self.matrx,"stress")*alphaMatrx*self.matrxPart)
+            TensionUltimaP = (stress*alphaFibre)
             TensionUltimaS = (stress*alphaMatrx)
+            TensionUltimaFibra = (stress*alphaFibre)
+            TensionUltimaMatrx = (stress*alphaMatrx)
 
-            TensionUltima = np.array([ TensionUltimaP[0], \
-                                       TensionUltimaS[1], \
-                                       TensionUltimaS[2], \
-                                       TensionUltimaS[3], \
-                                       TensionUltimaS[4], \
-                                       TensionUltimaS[5], ])
+            TU = np.array([ TensionUltimaP[0], \
+                            TensionUltimaS[1], \
+                            TensionUltimaS[2], \
+                            TensionUltimaS[3], \
+                            TensionUltimaS[4], \
+                            TensionUltimaS[5], ])
 
-            X.append( TensionUltima[dirX] )
-            Y.append( TensionUltima[dirY] )
+            TUm = (stress*alphaMatrx)
+            TUf = (stress*alphaFibre)
+
+            X.append( TensionUltimaFibra[dirX] )
+            Y.append( TensionUltimaFibra[dirY] )
+            aa.append( TensionUltimaMatrx[dirX] )
+            bb.append( TensionUltimaMatrx[dirY] )
+            cc.append( TU[dirX] )
+            dd.append( TU[dirY] )
+
+            print(str(angle) + "   " + \
+                  str(alphaMatrx) + "   " + \
+                  str(alphaFibre) + "   " + \
+                  #str(TU[0]) + " " + \
+                  #str(TU[1]) + " " + \
+                  str(stress[dirX]) + " " + \
+                  str(stress[dirY]) + " " + \
+                  str(getattr(self.matrx,"stress")[0]) + " " + \
+                  str(getattr(self.matrx,"stress")[1]) + " " + \
+                  str(getattr(self.matrx,"stress")[2]) + " " + \
+                  str(getattr(self.fibre,"stress")[0]) + " " + \
+                  str(getattr(self.fibre,"stress")[1]) + " " + \
+                  str(getattr(self.fibre,"stress")[2]) )
 
             #X.append( self.stress[0]*alphaMatrx )
             #Y.append( self.stress[3]*alphaMatrx )
@@ -151,9 +196,11 @@ class Laminate:
             #    Y.append( self.stress[1]*alphaFibre )
 
         plt.figure(figsize=(10,10))
-        #plt.xlim([0.0,1000.0])
-        plt.ylim([-50.0,50.0])
+        #plt.xlim([750.0,1000.0])
+        #plt.ylim([20.0,40.0])
         plt.plot(X,Y,'o',color='black')
+        plt.plot(aa,bb,'o',color='green')
+        plt.plot(cc,dd,'o',color='red')
         plt.grid()
         plt.show()
         
@@ -170,7 +217,7 @@ Dinv = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
                  [  0.0,  0.0,  0.0, 0.0, 0.0, 1/G]])
 setattr(matrx,"D",np.linalg.inv(Dinv))
 
-fibre = SimpleMaterial("VonMisses", 2000.0)
+fibre = SimpleMaterial("MaxStrain", 800.0)
 E = 86900
 v = 0.22
 G = E/(2*(1+v))
@@ -181,6 +228,8 @@ Dinv = np.array([[1/E,-v/E,-v/E,   0.0,   0.0,   0.0], \
                  [   0.0,   0.0,   0.0,   0.0,1/G,   0.0], \
                  [   0.0,   0.0,   0.0,   0.0,   0.0,1/G]])
 setattr(fibre,"D",np.linalg.inv(Dinv))
+setattr(fibre,"E",E)
+setattr(fibre,"v",v)
 
 laminat = Laminate(matrx,fibre,[1,0,0,0,0,0])
 laminat.computePoint()
