@@ -3,6 +3,8 @@ import numpy as np
 import math
 import sp
 import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
+from scipy.optimize import brentq
 
 class SimpleMaterial:
     def __init__(self, criterionType, thresholdValue):
@@ -16,14 +18,24 @@ class SimpleMaterial:
 
     def computeYC(self):
         return self.YC.equivalentStress(self.stress)
+        
+    def computeYCM(self):
+        return self.YC.equivalentStressM(self.stress)
 
     def computeEquivalentStress(self):
         eq = self.computeYC()
         return eq
+        
+    def computeEquivalentStressM(self):
+        eq = self.computeYCM()
+        return eq
 
     def computeAlpha(self):
         alpha = (self.threshold / self.computeYC())
+        return alpha
 
+    def computeAlphaM(self):
+        alpha = (self.threshold / self.computeYCM())
         return alpha
 
 
@@ -56,6 +68,28 @@ class VonMisses(yieldCriterion):
                                 (S[2]-S[0])**2 + \
                                 6*(S[3]**2+S[4]**2+S[5]**2) )/2 )
         return eqStress
+    
+    def equivalentStressM(self,stress):
+        S = stress
+        S[0] = S[0]*(0.2791220556745182)
+        eqStress = math.sqrt( ( (S[0]-S[1])**2 + \
+                                (S[1]-S[2])**2 + \
+                                (S[2]-S[0])**2 + \
+                                6*(S[3]**2+S[4]**2+S[5]**2) )/2 )
+        return eqStress
+
+def computeFailedP(stress):
+    S = stress
+    #dintreLarrel = 3*( - (S[1]**2) + 2*S[1]*S[2] - (S[2]**2) - 4*(S[3]+S[4]+S[5]) )
+    #eqStress = 0.5*math.sqrt( dintreLarrel  )
+    def f(x):
+        return ((2000**2-S[1]**2)/(x-S[1]))-x
+    
+    eqStress, info = brentq(f, 3000, 100, full_output=True)
+    
+    S[0] = eqStress
+
+    return S
 
 class MaxStrain(yieldCriterion):
     def __init__(self):
@@ -91,6 +125,8 @@ class Laminate:
 
         [MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSP(self)
 
+        #MatrxStrain_t[0] = MatrxStrain_t[0]*(351/1253)
+
         setattr(self.matrx, "stress", np.dot(getattr(self.matrx,"D"),np.transpose(MatrxStrain_t)) )
         setattr(self.fibre, "stress", np.dot(getattr(self.fibre,"D"),np.transpose(FibreStrain_t)) )
 
@@ -116,17 +152,30 @@ class Laminate:
         return CT
 
     def computePoint(self):
-        X = []
-        Y = []
-        aa = []
-        bb = []
-        cc = []
-        dd = []
+        dirX = 0
+        dirY = 1
+
+        FibraX = [0.0]
+        FibraY = [0.0]
+        MatrxX = [0.0]
+        MatrxY = [0.0]
+        CompoX = [0.0]
+        CompoY = [0.0]
+
+        #stress = np.zeros(6)
+
+        #stress[dirX] = 1.0
+        #stress[dirY] = 0.0
+        #self.stress = stress
+        #laminat.stressesDistribution()
+        #alphaMatrx = self.matrx.computeAlpha()
+        #alphaFibre = self.fibre.computeAlpha()
+
+        #coef = alphaMatrx/alphaFibre
+
         print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
         for angle in np.arange(0,91.0,1.0):
             #angle = 90-angle
-            dirX = 0
-            dirY = 1
 
             stress = np.zeros(6)
             stress[dirX] = math.cos(math.radians(angle))
@@ -135,14 +184,18 @@ class Laminate:
             self.stress = stress
             laminat.stressesDistribution()
             
-            alphaMatrx = self.matrx.computeAlpha()
+            alphaMatrx = self.matrx.computeAlphaM()
+            #AAA = computeFailedP(getattr(self.matrx,"stress")*alphaMatrx)
+            #setattr(self.fibre, "stress", AAA)
             alphaFibre = self.fibre.computeAlpha()
 
-            #TensionUltimaP = (getattr(self.fibre,"stress")*alphaFibre*self.fibrePart+getattr(self.matrx,"stress")*alphaMatrx*self.matrxPart)
-            TensionUltimaP = (stress*alphaFibre)
+            TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart+getattr(self.matrx,"stress")*self.matrxPart)
+            #TensionUltimaP = (stress*alphaFibre)
             TensionUltimaS = (stress*alphaMatrx)
-            TensionUltimaFibra = (stress*alphaFibre)
-            TensionUltimaMatrx = (stress*alphaMatrx)
+            TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
+            TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
+            TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
+            TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
 
             TU = np.array([ TensionUltimaP[0], \
                             TensionUltimaS[1], \
@@ -151,15 +204,17 @@ class Laminate:
                             TensionUltimaS[4], \
                             TensionUltimaS[5], ])
 
+            compo = stress*alphaMatrx
+
             TUm = (stress*alphaMatrx)
             TUf = (stress*alphaFibre)
 
-            X.append( TensionUltimaFibra[dirX] )
-            Y.append( TensionUltimaFibra[dirY] )
-            aa.append( TensionUltimaMatrx[dirX] )
-            bb.append( TensionUltimaMatrx[dirY] )
-            cc.append( TU[dirX] )
-            dd.append( TU[dirY] )
+            FibraX.append( TensionUltimaFibra[dirX] )
+            FibraY.append( TensionUltimaFibra[dirY] )
+            MatrxX.append( TensionUltimaMatrx[dirX] )
+            MatrxY.append( TensionUltimaMatrx[dirY] )
+            CompoX.append( compo[dirX] )
+            CompoY.append( compo[dirY] )
 
             print(str(angle) + "   " + \
                   str(alphaMatrx) + "   " + \
@@ -198,15 +253,15 @@ class Laminate:
         plt.figure(figsize=(10,10))
         #plt.xlim([750.0,1000.0])
         #plt.ylim([20.0,40.0])
-        plt.plot(X,Y,'o',color='black')
-        plt.plot(aa,bb,'o',color='green')
-        plt.plot(cc,dd,'o',color='red')
+        plt.plot(FibraX,FibraY,'o',color='green') #,'o'
+        plt.plot(MatrxX,MatrxY,'o',color='red'  ) #,'o'
+        plt.plot(CompoX,CompoY,'o',color='black') #,'o'
         plt.grid()
-        plt.show()
-        
+        plt.show()        
 
 matrx = SimpleMaterial("VonMisses", 30.0)
 E = 4670
+Ep = 4670*(351/1253)
 v = 0.38
 G = E/(2*(1+v))
 Dinv = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
@@ -217,7 +272,7 @@ Dinv = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
                  [  0.0,  0.0,  0.0, 0.0, 0.0, 1/G]])
 setattr(matrx,"D",np.linalg.inv(Dinv))
 
-fibre = SimpleMaterial("MaxStrain", 800.0)
+fibre = SimpleMaterial("VonMisses", 2000.0)
 E = 86900
 v = 0.22
 G = E/(2*(1+v))
