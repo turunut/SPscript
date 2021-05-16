@@ -12,7 +12,8 @@ class SimpleMaterial:
         self.strain = np.zeros(6)
         self.E = None
         self.v = None
-        self.D      = None
+        self.S = None
+        self.D = None
         self.YC = yieldCriterion.factory(criterionType)
         self.threshold = thresholdValue
 
@@ -37,6 +38,23 @@ class SimpleMaterial:
     def computeAlphaM(self):
         alpha = (self.threshold / self.computeYCM())
         return alpha
+
+    def computeG(self):
+        self.G = self.E/(2*(1+self.v))
+
+    def computeS(self):
+        E = self.E
+        v = self.v
+        G = self.G
+        self.S = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
+                           [ -v/E,  1/E, -v/E, 0.0, 0.0, 0.0], \
+                           [ -v/E, -v/E,  1/E, 0.0, 0.0, 0.0], \
+                           [  0.0,  0.0,  0.0, 1/G, 0.0, 0.0], \
+                           [  0.0,  0.0,  0.0, 0.0, 1/G, 0.0], \
+                           [  0.0,  0.0,  0.0, 0.0, 0.0, 1/G]])
+
+    def computeD(self):
+        self.D = np.linalg.inv(self.S)
 
 
 class yieldCriterion:
@@ -260,31 +278,18 @@ class Laminate:
         plt.show()        
 
 matrx = SimpleMaterial("VonMisses", 30.0)
-E = 4670
-Ep = 4670*(351/1253)
-v = 0.38
-G = E/(2*(1+v))
-Dinv = np.array([[  1/E, -v/E, -v/E, 0.0, 0.0, 0.0], \
-                 [ -v/E,  1/E, -v/E, 0.0, 0.0, 0.0], \
-                 [ -v/E, -v/E,  1/E, 0.0, 0.0, 0.0], \
-                 [  0.0,  0.0,  0.0, 1/G, 0.0, 0.0], \
-                 [  0.0,  0.0,  0.0, 0.0, 1/G, 0.0], \
-                 [  0.0,  0.0,  0.0, 0.0, 0.0, 1/G]])
-setattr(matrx,"D",np.linalg.inv(Dinv))
+setattr(matrx, "E", 4670)
+setattr(matrx, "v", 0.38)
+matrx.computeG()
+matrx.computeS()
+matrx.computeD()
 
 fibre = SimpleMaterial("VonMisses", 2000.0)
-E = 86900
-v = 0.22
-G = E/(2*(1+v))
-Dinv = np.array([[1/E,-v/E,-v/E,   0.0,   0.0,   0.0], \
-                 [-v/E,1/E,-v/E,   0.0,   0.0,   0.0], \
-                 [-v/E,-v/E,1/E,   0.0,   0.0,   0.0], \
-                 [   0.0,   0.0,   0.0,1/G,   0.0,   0.0], \
-                 [   0.0,   0.0,   0.0,   0.0,1/G,   0.0], \
-                 [   0.0,   0.0,   0.0,   0.0,   0.0,1/G]])
-setattr(fibre,"D",np.linalg.inv(Dinv))
-setattr(fibre,"E",E)
-setattr(fibre,"v",v)
+setattr(fibre, "E", 86900)
+setattr(fibre, "v", 0.22)
+fibre.computeG()
+fibre.computeS()
+fibre.computeD()
 
 laminat = Laminate(matrx,fibre,[1,0,0,0,0,0])
 laminat.computePoint()
