@@ -79,9 +79,6 @@ class yieldCriterion:
 
     def __init__(self):
         None
-        
-    def computeAlpha(self,stress):
-        self.equivalentStress(stress)
 
 class VonMisses(yieldCriterion):
     def __init__(self):
@@ -90,20 +87,20 @@ class VonMisses(yieldCriterion):
 
     def setup(self,data):
         self.thresshold = data[0][0]
-    
-    def equivalentStress(self,stress):
-        S = stress
-        S[0] = 2000.0
+
+    def computeAlpha(self,stress):
         t = self.thresshold
-        eqStress = math.sqrt( ( (S[0]-S[1])**2 + \
-                                (S[1]-S[2])**2 + \
-                                (S[2]-S[0])**2 + \
-                                6*(S[3]**2+S[4]**2+S[5]**2) )/2 )
-        eqStress2 = + (t**-2)*(S[0]**2+S[1]**2+S[2]**2) \
+        def fun(x):
+            S = stress*x
+            alpha = + (t**-2)*(S[0]**2+S[1]**2+S[2]**2) \
                     - (t**-2)*(S[1]*S[2]+S[2]*S[0]+S[0]*S[1]) \
                     + (3*t**-2)*(S[3]**2+S[4]**2+S[5]**2) \
                     - 1
-        return eqStress
+            return alpha
+        
+        alphaConv, info = brentq(fun, 0, 1000, full_output=True)
+    
+        return alphaConv
 
 class Ortotrop(yieldCriterion):
     def __init__(self):
@@ -113,46 +110,29 @@ class Ortotrop(yieldCriterion):
     def setup(self,data):
         self.f = data[0]
     
-    def equivalentStress(self,stress):
-        S = stress
+    def computeAlpha(self,stress):
         f = self.f
-        alpha = [ 0.5*((1)-(1)), 0.5*((1)-(1)), 0.5*((1)-(1)) ]
-        delta = np.zeros(3)
+        def fun(x):
+            S = stress*x
+            theta = [ 0.5*((1)-(1)), 0.5*((1)-(1)), 0.5*((1)-(1)) ]
 
-        delta[0] = (+f[2]**2*f[0]**2-f[2]**2*f[1]**2+f[1]**2*f[0]**2)/(f[1]*f[2]*f[0]**2)
-        delta[1] = (-f[2]**2*f[0]**2+f[2]**2*f[1]**2+f[1]**2*f[0]**2)/(f[0]*f[2]*f[1]**2)
-        delta[2] = (+f[2]**2*f[0]**2+f[2]**2*f[1]**2-f[1]**2*f[0]**2)/(f[1]*f[0]*f[2]**2)
-
-        eqStress = + ( (S[0]**2)/(f[0]**2) + (S[1]**2)/(f[1]**2) + (S[2]**2)/(f[2]**2) ) \
-                   - delta[0]*((S[1]*S[2])/(f[1]*f[2])) \
-                   - delta[1]*((S[2]*S[0])/(f[2]*f[0])) \
-                   - delta[2]*((S[0]*S[1])/(f[0]*f[1])) \
-                   + ( ((S[3]**2)/(f[3]**2)) + ((S[4]**2)/(f[4]**2)) + ((S[5]**2)/(f[5]**2)) ) \
-                   + 2*( (alpha[0]*(S[0]/f[0])) + (alpha[1]*(S[1]/f[1])) + (alpha[2]*(S[2]/f[2])) ) \
-                   -1
-        return eqStress
+            delta = np.zeros(3)
+            delta[0] = (+f[2]**2*f[0]**2-f[2]**2*f[1]**2+f[1]**2*f[0]**2)/(f[1]*f[2]*f[0]**2)
+            delta[1] = (-f[2]**2*f[0]**2+f[2]**2*f[1]**2+f[1]**2*f[0]**2)/(f[0]*f[2]*f[1]**2)
+            delta[2] = (+f[2]**2*f[0]**2+f[2]**2*f[1]**2-f[1]**2*f[0]**2)/(f[1]*f[0]*f[2]**2)
     
-    def equivalentStressM(self,stress):
-        S = stress
-        S[0] = S[0]*(0.2791220556745182)
-        eqStress = math.sqrt( ( (S[0]-S[1])**2 + \
-                                (S[1]-S[2])**2 + \
-                                (S[2]-S[0])**2 + \
-                                6*(S[3]**2+S[4]**2+S[5]**2) )/2 )
-        return eqStress
-
-def computeFailedP(stress):
-    S = stress
-    #dintreLarrel = 3*( - (S[1]**2) + 2*S[1]*S[2] - (S[2]**2) - 4*(S[3]+S[4]+S[5]) )
-    #eqStress = 0.5*math.sqrt( dintreLarrel  )
-    def f(x):
-        return ((2000**2-S[1]**2)/(x-S[1]))-x
+            alpha = + ( (S[0]**2)*(f[0]**-2) + (S[1]**2)*(f[1]**-2) + (S[2]**2)*(f[2]**-2) ) \
+                    - delta[0]*((S[1]*S[2])/(f[1]*f[2])) \
+                    - delta[1]*((S[2]*S[0])/(f[2]*f[0])) \
+                    - delta[2]*((S[0]*S[1])/(f[0]*f[1])) \
+                    + ( ((S[3]**2)/(f[3]**2)) + ((S[4]**2)/(f[4]**2)) + ((S[5]**2)/(f[5]**2)) ) \
+                    + 2*( (theta[0]*(S[0]/f[0])) + (theta[1]*(S[1]/f[1])) + (theta[2]*(S[2]/f[2])) ) \
+                    - 1
+            return alpha
+        
+        alphaConv, info = brentq(fun, 0, 1000, full_output=True)
     
-    eqStress, info = brentq(f, 3000, 100, full_output=True)
-    
-    S[0] = eqStress
-
-    return S
+        return alphaConv
 
 class MaxStrain(yieldCriterion):
     def __init__(self):
@@ -220,52 +200,29 @@ class Laminate:
 
         stress = np.zeros(6)
 
-        stress[dirX] = 100.0
-        stress[dirY] = 0.0
-        self.stress = stress
-        laminat.stressesDistribution()
-        alphaMatrx = self.matrx.computeAlpha()
-        alphaFibre = self.fibre.computeAlpha()
-        mappingMatrx = alphaMatrx/alphaFibre 
-
-        stress[dirX] = 0.0
-        stress[dirY] = 100.0
-        self.stress = stress
-        laminat.stressesDistribution()
-        alphaMatrx = self.matrx.computeAlpha()
-        alphaFibre = self.fibre.computeAlpha()
-        mappingFibre = alphaFibre/alphaMatrx
-
         print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
-        for angle in np.arange(90,91.0,90.0):
+        for angle in np.arange(0,90.05,0.05):
             #angle = 90-angle
 
             stress = np.zeros(6)
-            stress[dirX] = math.cos(math.radians(angle))
-            stress[dirY] = math.sin(math.radians(angle))
+            stress[dirX] = 100*math.cos(math.radians(angle))
+            stress[dirY] = 100*math.sin(math.radians(angle))
             
             self.stress = stress
             laminat.stressesDistribution()
             
-            #alphaMatrx = self.matrx.computeAlphaM()
-            ##AAA = computeFailedP(getattr(self.matrx,"stress")*alphaMatrx)
-            ##setattr(self.fibre, "stress", AAA)
-            #alphaFibre = self.fibre.computeAlpha()
-            
-            self.matrx.mapStress([mappingMatrx,1.0,1.0,1.0,1.0,1.0])
-            self.fibre.mapStress([1.0,mappingFibre,mappingFibre,mappingFibre,mappingFibre,mappingFibre])
             alphaMatrx = self.matrx.computeAlpha()
             alphaFibre = self.fibre.computeAlpha()
-            self.matrx.mapStress([1/mappingMatrx,1.0,1.0,1.0,1.0,1.0])
-            self.fibre.mapStress([1.0,1/mappingFibre,1/mappingFibre,1/mappingFibre,1/mappingFibre,1/mappingFibre])
 
             TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart+getattr(self.matrx,"stress")*self.matrxPart)
             #TensionUltimaP = (stress*alphaFibre)
             TensionUltimaS = (stress*alphaMatrx)
-            TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
-            TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
-            TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
-            TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
+            #TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
+            #TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
+            #TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
+            #TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
+            TensionUltimaMatrx = stress*alphaMatrx
+            TensionUltimaFibra = stress*alphaFibre
 
             TU = np.array([ TensionUltimaP[0], \
                             TensionUltimaS[1], \
@@ -275,9 +232,6 @@ class Laminate:
                             TensionUltimaS[5], ])
 
             compo = stress*alphaMatrx
-
-            TUm = (stress*alphaMatrx)
-            TUf = (stress*alphaFibre)
 
             FibraX.append( TensionUltimaFibra[dirX] )
             FibraY.append( TensionUltimaFibra[dirY] )
@@ -289,48 +243,23 @@ class Laminate:
             print(str(angle) + "   " + \
                   str(alphaMatrx) + "   " + \
                   str(alphaFibre) + "   " + \
-                  #str(TU[0]) + " " + \
-                  #str(TU[1]) + " " + \
                   str(stress[dirX]) + " " + \
-                  str(stress[dirY]) + " " + \
-                  str(getattr(self.matrx,"stress")[0]) + " " + \
-                  str(getattr(self.matrx,"stress")[1]) + " " + \
-                  str(getattr(self.matrx,"stress")[2]) + " " + \
-                  str(getattr(self.fibre,"stress")[0]) + " " + \
-                  str(getattr(self.fibre,"stress")[1]) + " " + \
-                  str(getattr(self.fibre,"stress")[2]) )
-
-            #X.append( self.stress[0]*alphaMatrx )
-            #Y.append( self.stress[3]*alphaMatrx )
-            #X.append( self.stress[0]*alphaFibre )
-            #Y.append( self.stress[3]*alphaFibre )
-
-            #if alphaMatrx < alphaFibre: # Alpha mas pequeña es que rompe antes
-            #    self.stress = stress*alphaMatrx
-            #    laminat.stressesDistribution()
-            #    alphaMatrx = self.matrx.computeAlpha()
-            #    alphaFibre = self.fibre.computeAlpha()
-            #    X.append( self.stress[0]*alphaMatrx )
-            #    Y.append( self.stress[1]*alphaMatrx )
-            #else:
-            #    self.stress = stress*alphaFibre
-            #    laminat.stressesDistribution()
-            #    alphaMatrx = self.matrx.computeAlpha()
-            #    alphaFibre = self.fibre.computeAlpha()
-            #    X.append( self.stress[0]*alphaFibre )
-            #    Y.append( self.stress[1]*alphaFibre )
+                  str(stress[dirY]) )
 
         plt.figure(figsize=(10,10))
         #plt.xlim([750.0,1000.0])
         #plt.ylim([20.0,40.0])
-        plt.plot(FibraX,FibraY,'o',color='green') #,'o'
-        plt.plot(MatrxX,MatrxY,'o',color='red'  ) #,'o'
-        plt.plot(CompoX,CompoY,'o',color='black') #,'o'
+        plt.plot(FibraX,FibraY,color='green') #,'o'
+        plt.plot(MatrxX,MatrxY,color='red'  ) #,'o'
+        plt.plot(CompoX,CompoY,'-.',color='black') #,'o'
         plt.grid()
-        plt.show()        
+        plt.show()   
+
+epsilonYC = 800/86900
+sigmaM = epsilonYC*4670     
 
 matrx = SimpleMaterial("Ortotrop")
-matrx.setYC([[107.479,30.0,30.0,30.0,30.0,30.0]])
+matrx.setYC([[sigmaM,30.0,30.0,30.0,30.0,30.0]])
 setattr(matrx, "E", 4670)
 setattr(matrx, "v", 0.38)
 matrx.computeG()
@@ -338,15 +267,12 @@ matrx.computeS()
 matrx.computeD()
 
 fibre = SimpleMaterial("VonMisses")
-fibre.setYC([[2000.0]])
+fibre.setYC([[800.0]])
 setattr(fibre, "E", 86900)
 setattr(fibre, "v", 0.22)
 fibre.computeG()
 fibre.computeS()
 fibre.computeD()
-
-epsilonYC = 2000/86900
-sigmaM = epsilonYC*4670
 
 laminat = Laminate(matrx,fibre,[1,0,0,0,0,0])
 laminat.computePoint()
