@@ -114,7 +114,7 @@ class Ortotrop(yieldCriterion):
         f = self.f
         def fun(x):
             S = stress*x
-            theta = [ 0.5*((1)-(1)), 0.5*((1)-(1)), 0.5*((1)-(1)) ]
+            theta = [ 0.5*((1)-(1)), 0.5*(((f[1])/(f[1]))-((f[1])/(f[1]))), 0.5*((1)-(1)) ]
 
             delta = np.zeros(3)
             delta[0] = (+f[2]**2*f[0]**2-f[2]**2*f[1]**2+f[1]**2*f[0]**2)/(f[1]*f[2]*f[0]**2)
@@ -201,7 +201,7 @@ class Laminate:
         stress = np.zeros(6)
 
         print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
-        for angle in np.arange(0,90.05,0.05):
+        for angle in np.arange(0,360.05,0.05):
             #angle = 90-angle
 
             stress = np.zeros(6)
