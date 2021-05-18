@@ -201,7 +201,7 @@ class Laminate:
         stress = np.zeros(6)
 
         print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
-        for angle in np.arange(0,360.05,0.05):
+        for angle in np.arange(0,90.05,0.05):
             #angle = 90-angle
 
             stress = np.zeros(6)
@@ -212,6 +212,17 @@ class Laminate:
             laminat.stressesDistribution()
             
             alphaMatrx = self.matrx.computeAlpha()
+
+            # Portem el laminat al punt de rotura de la matriu i ho verifiquem mirant lalpha daquesta
+            self.stress = stress*alphaMatrx
+            laminat.stressesDistribution()
+            alphaMatrx = self.matrx.computeAlpha()
+
+            # IDEA FERMIN
+            [MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSPonlyFibre(laminat,np.dot(self.PS, alphaMatrx*self.matrx.stress))
+            # ACABA AQUI EL FERMIN
+
+
             alphaFibre = self.fibre.computeAlpha()
 
             TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart+getattr(self.matrx,"stress")*self.matrxPart)
