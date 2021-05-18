@@ -178,7 +178,7 @@ def computeStrainMatrxFibreSP(laminat):
 
     return [MatrxStrain_t, FibreStrain_t]
 
-def computeStrainMatrxFibreSPonlyFibre(laminat):
+def computeStrainMatrxFibreSPonlyFibre(laminat,tensionsSerie):
     PP = getattr(laminat, "PP")
     PS = getattr(laminat, "PS")
 
@@ -188,27 +188,27 @@ def computeStrainMatrxFibreSPonlyFibre(laminat):
     kMatrx = getattr(laminat,"matrxPart")
     kFibre = getattr(laminat,"fibrePart")
       
-    # Obtenemos las deformaciones del compuesto
     LayerStrain_t = getattr(laminat,"strain")
     
-    # Eval parallel fiber strains before loop
-    LayerStrainP_t = np.dot(             PP , LayerStrain_t)
-    LayerStrainS_t = np.dot(np.transpose(PS), LayerStrain_t) 
+    LayerStrainP_t = np.dot(PP, LayerStrain_t)
+    LayerStrainS_t = np.dot(PS, LayerStrain_t) 
     
     FibreStrainP_t = LayerStrainP_t 
 
+    # Reduim la matriu S i ompliu la diagonal de 1 per invertirla
     FibreS_P = np.dot(np.dot(PP, laminat.fibre.S),PP)
     for i in range(0,6):
         if FibreS_P[i][i] == 0.0:
             FibreS_P[i][i] = 1.0
-    FibreStress_t = np.dot(np.linalg.inv(FibreS_P),LayerStrainP_t)
-    FibreStrain_t = np.dot(laminat.fibre.S,FibreStress_t)
 
-    ## Obtain fiber parallel and serial strains
+    FibreStressP_t = np.dot(np.linalg.inv(FibreS_P),LayerStrainP_t-np.dot(laminat.fibre.S,tensionsSerie))
+
+    FibreStress_t = tensionsSerie + np.dot(PP,FibreStressP_t)
+    FibreStrain_t = np.dot(laminat.fibre.S,(FibreStress_t))
+
     FibreStrainP_t = np.dot(PP, FibreStrain_t)
     FibreStrainS_t = np.dot(PS, FibreStrain_t)
 
-    ## Obtain matrix parallel and serial strains
     MatrxStrainP_t = FibreStrainP_t
     MatrxStrainS_t = ( LayerStrainS_t - kFibre*FibreStrainS_t )/ kMatrx
 
