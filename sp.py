@@ -214,4 +214,10 @@ def computeStrainMatrxFibreSPonlyFibre(laminat,tensionsSerie):
 
     MatrxStrain_t = MatrxStrainP_t + MatrxStrainS_t
 
+    # Verificacion
+    LayerStrain_t_recalculat = FibreStrainP_t + FibreStrainS_t*kFibre + MatrxStrainS_t*kMatrx
+    error = abs(np.linalg.norm(LayerStrain_t_recalculat) - np.linalg.norm(LayerStrain_t))
+    if error > 0.00001:
+        print("cuidao")
+
     return [MatrxStrain_t, FibreStrain_t]
