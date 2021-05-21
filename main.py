@@ -201,12 +201,12 @@ class Laminate:
         stress = np.zeros(6)
 
         print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
-        for angle in np.arange(0,90.05,0.05):
+        for angle in np.arange(0,70.05,0.05):
             #angle = 90-angle
 
             stress = np.zeros(6)
-            stress[dirX] = 100*math.cos(math.radians(angle))
-            stress[dirY] = 100*math.sin(math.radians(angle))
+            stress[dirX] = 10*math.cos(math.radians(angle))
+            stress[dirY] = 10*math.sin(math.radians(angle))
             
             self.stress = stress
             laminat.stressesDistribution()
@@ -219,21 +219,32 @@ class Laminate:
             alphaMatrx = self.matrx.computeAlpha()
 
             # IDEA FERMIN
-            [MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSPonlyFibre(laminat,np.dot(self.PS, alphaMatrx*self.matrx.stress))
+            #[MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSPonlyFibre(laminat,np.dot(self.PS, alphaMatrx*self.matrx.stress))
+            setattr(self.matrx, "E", 0.0001)
+            setattr(self.matrx, "v", 0.0)
+            self.matrx.computeG()
+            self.matrx.computeS()
+            self.matrx.computeD()
+            laminat.stressesDistribution()
+            setattr(self.matrx, "E", 4670)
+            setattr(self.matrx, "v", 0.38)
+            self.matrx.computeG()
+            self.matrx.computeS()
+            self.matrx.computeD()
             # ACABA AQUI EL FERMIN
-
 
             alphaFibre = self.fibre.computeAlpha()
 
-            TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart+getattr(self.matrx,"stress")*self.matrxPart)
+            TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart + \
+                              getattr(self.matrx,"stress")*self.matrxPart)
             #TensionUltimaP = (stress*alphaFibre)
-            TensionUltimaS = (stress*alphaMatrx)
+            TensionUltimaS = (self.stress*alphaMatrx)
             #TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
             #TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
             #TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
             #TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
-            TensionUltimaMatrx = stress*alphaMatrx
-            TensionUltimaFibra = stress*alphaFibre
+            TensionUltimaMatrx = self.stress*alphaMatrx
+            TensionUltimaFibra = self.stress*alphaFibre
 
             TU = np.array([ TensionUltimaP[0], \
                             TensionUltimaS[1], \
@@ -242,14 +253,12 @@ class Laminate:
                             TensionUltimaS[4], \
                             TensionUltimaS[5], ])
 
-            compo = stress*alphaMatrx
-
             FibraX.append( TensionUltimaFibra[dirX] )
             FibraY.append( TensionUltimaFibra[dirY] )
             MatrxX.append( TensionUltimaMatrx[dirX] )
             MatrxY.append( TensionUltimaMatrx[dirY] )
-            CompoX.append( compo[dirX] )
-            CompoY.append( compo[dirY] )
+            CompoX.append( TU[dirX] )
+            CompoY.append( TU[dirY] )
 
             print(str(angle) + "   " + \
                   str(alphaMatrx) + "   " + \
@@ -266,7 +275,7 @@ class Laminate:
         plt.grid()
         plt.show()   
 
-epsilonYC = 800/86900
+epsilonYC = 2000/86900
 sigmaM = epsilonYC*4670     
 
 matrx = SimpleMaterial("Ortotrop")
@@ -278,7 +287,7 @@ matrx.computeS()
 matrx.computeD()
 
 fibre = SimpleMaterial("VonMisses")
-fibre.setYC([[800.0]])
+fibre.setYC([[2000.0]])
 setattr(fibre, "E", 86900)
 setattr(fibre, "v", 0.22)
 fibre.computeG()
