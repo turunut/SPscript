@@ -4,7 +4,10 @@ import math
 
 from numpy import linalg
 import sp
+
+from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
+
 from scipy.optimize import fsolve
 from scipy.optimize import brentq
 
@@ -190,100 +193,120 @@ class Laminate:
     def computePoint(self):
         dirX = 0
         dirY = 1
+        dirZ = 2
 
         FibraX = []
         FibraY = []
+        FibraZ = []
         MatrxX = []
         MatrxY = []
+        MatrxZ = []
         CompoX = []
         CompoY = []
+        CompoZ = []
 
         stress = np.zeros(6)
 
-        print("angle   alphaMatrx alphaFibre TU1 TU2 TU3 TU4 TU5 TU6")
-        for angle in np.arange(0,90.05,0.1):
-            #angle = 90-angle
-
+        for angle1 in np.arange(0,70.05,2.0):
+             
             stress = np.zeros(6)
-            stress[dirX] = 10*math.cos(math.radians(angle))
-            stress[dirY] = 10*math.sin(math.radians(angle))
-            
-            self.stress = stress
-            laminat.stressesDistribution()
-            
-            alphaMatrx = self.matrx.computeAlpha()
+            module  = 10
+            stress[dirZ] = module*math.sin(math.radians(angle1))
+            moduleP = module*math.cos(math.radians(angle1))
 
-            # Portem el laminat al punt de rotura de la matriu i ho verifiquem mirant lalpha daquesta
-            self.stress = stress*alphaMatrx
-            laminat.stressesDistribution()
-            alphaMatrx = self.matrx.computeAlpha()
-
-            # IDEA FERMIN
-            [MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSPonlyFibre(laminat,np.dot(self.PS, alphaMatrx*self.matrx.stress))
-            #setattr(self.matrx, "stress", np.dot(getattr(self.matrx,"D"),MatrxStrain_t) )
-            setattr(self.fibre, "stress", np.dot(getattr(self.fibre,"D"),FibreStrain_t) )
-            #setattr(self.matrx, "strain", MatrxStrain_t )
-            setattr(self.fibre, "strain", FibreStrain_t )
-            alphaFibre = self.fibre.computeAlpha()
-            fibreStress = getattr(self.fibre, "stress")
-            setattr(self.fibre, "stress", fibreStress*alphaFibre )
-
-            ###setattr(self.matrx, "E", 0.0001)
-            ###setattr(self.matrx, "v", 0.0)
-            ###self.matrx.computeG()
-            ###self.matrx.computeS()
-            ###self.matrx.computeD()
-            ###laminat.stressesDistribution()
-            ###setattr(self.matrx, "E", 4670)
-            ###setattr(self.matrx, "v", 0.38)
-            ###self.matrx.computeG()
-            ###self.matrx.computeS()
-            ###self.matrx.computeD()
-            # ACABA AQUI EL FERMIN
-
-            alphaFibre = self.fibre.computeAlpha()
-
-            TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart + \
-                              getattr(self.matrx,"stress")*self.matrxPart)
-            #TensionUltimaP = (stress*alphaFibre)
-            TensionUltimaS = (self.stress*alphaMatrx)
-            #TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
-            #TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
-            #TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
-            #TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
-            TensionUltimaMatrx = self.stress*alphaMatrx
-            TensionUltimaFibra = self.fibre.stress*self.fibrePart
-
-            TU = np.array([ TensionUltimaP[0], \
-                            TensionUltimaS[1], \
-                            TensionUltimaS[2], \
-                            TensionUltimaS[3], \
-                            TensionUltimaS[4], \
-                            TensionUltimaS[5], ])
-
-            FibraX.append( TensionUltimaFibra[dirX] )
-            FibraY.append( TensionUltimaFibra[dirY] )
-            MatrxX.append( TensionUltimaMatrx[dirX] )
-            MatrxY.append( TensionUltimaMatrx[dirY] )
-            CompoX.append( TU[dirX] )
-            CompoY.append( TU[dirY] )
-
-            print(str(angle) + "   " + \
-                  str(alphaMatrx) + "   " + \
-                  str(alphaFibre) + "   " + \
-                  str(stress[dirX]) + " " + \
-                  str(stress[dirY]) )
+            for angle2 in np.arange(0,70.05,2.0):
+                #angle = 90-angle
+    
+                stress[dirX] = moduleP*math.cos(math.radians(angle2))
+                stress[dirY] = moduleP*math.sin(math.radians(angle2))
+                
+                self.stress = stress
+                laminat.stressesDistribution()
+                
+                alphaMatrx = self.matrx.computeAlpha()
+    
+                # Portem el laminat al punt de rotura de la matriu i ho verifiquem mirant lalpha daquesta
+                self.stress = stress*alphaMatrx
+                laminat.stressesDistribution()
+                alphaMatrx = self.matrx.computeAlpha()
+    
+                ## IDEA FERMIN
+                #[MatrxStrain_t, FibreStrain_t] = sp.computeStrainMatrxFibreSPonlyFibre(laminat,np.dot(self.PS, alphaMatrx*self.matrx.stress))
+                ##setattr(self.matrx, "stress", np.dot(getattr(self.matrx,"D"),MatrxStrain_t) )
+                #setattr(self.fibre, "stress", np.dot(getattr(self.fibre,"D"),FibreStrain_t) )
+                ##setattr(self.matrx, "strain", MatrxStrain_t )
+                #setattr(self.fibre, "strain", FibreStrain_t )
+                #alphaFibre = self.fibre.computeAlpha()
+                #fibreStress = getattr(self.fibre, "stress")
+                #setattr(self.fibre, "stress", fibreStress*alphaFibre )
+    
+                ####setattr(self.matrx, "E", 0.0001)
+                ####setattr(self.matrx, "v", 0.0)
+                ####self.matrx.computeG()
+                ####self.matrx.computeS()
+                ####self.matrx.computeD()
+                ####laminat.stressesDistribution()
+                ####setattr(self.matrx, "E", 4670)
+                ####setattr(self.matrx, "v", 0.38)
+                ####self.matrx.computeG()
+                ####self.matrx.computeS()
+                ####self.matrx.computeD()
+                ## ACABA AQUI EL FERMIN
+    
+                alphaFibre = self.fibre.computeAlpha()
+    
+                TensionUltimaP = (getattr(self.fibre,"stress")*self.fibrePart + \
+                                  getattr(self.matrx,"stress")*self.matrxPart)
+                #TensionUltimaP = (stress*alphaFibre)
+                TensionUltimaS = (self.stress*alphaMatrx)
+                #TensionUltimaMatrx = (getattr(self.matrx,"stress")*alphaMatrx)
+                #TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
+                #TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
+                #TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
+                TensionUltimaMatrx = self.stress*alphaMatrx
+                TensionUltimaFibra = self.fibre.stress
+    
+                TU = np.array([ TensionUltimaP[0], \
+                                TensionUltimaS[1], \
+                                TensionUltimaS[2], \
+                                TensionUltimaS[3], \
+                                TensionUltimaS[4], \
+                                TensionUltimaS[5], ])
+    
+                FibraX.append( TensionUltimaFibra[dirX] )
+                FibraY.append( TensionUltimaFibra[dirY] )
+                FibraZ.append( TensionUltimaFibra[dirZ] )
+                MatrxX.append( TensionUltimaMatrx[dirX] )
+                MatrxY.append( TensionUltimaMatrx[dirY] )
+                MatrxZ.append( TensionUltimaMatrx[dirZ] )
+                CompoX.append( TU[dirX] )
+                CompoY.append( TU[dirY] )
+                CompoZ.append( TU[dirZ] )
+    
+                print(str(angle1) + "   " + \
+                      str(angle2) + "   " + \
+                      str(alphaMatrx) + "   " + \
+                      str(alphaFibre) + "   " + \
+                      str(stress[dirX]) + " " + \
+                      str(stress[dirY]) )
 
         plt.figure(figsize=(10,10))
-        #plt.xlim([750.0,1000.0])
-        #plt.ylim([20.0,40.0])
-        plt.plot(FibraX,FibraY,color='green') #,'o'
-        plt.plot(MatrxX,MatrxY,color='red'  ) #,'o'
-        plt.plot(CompoX,CompoY,'-.',color='black') #,'o'
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(FibraX,FibraY,FibraZ,linewidth=0.2, antialiased=True)
+        #ax.scatter(MatrxX,MatrxY,MatrxZ,linewidth=0.2, antialiased=True)
+        #ax.scatter(CompoX,CompoY,CompoZ,linewidth=0.2, antialiased=True)
+
+        ##plt.xlim([750.0,1000.0])
+        ##plt.ylim([20.0,40.0])
+        #plt.plot_surface(FibraX,FibraY,FibraZ,color='green') #,'o'
+        #plt.plot_surface(MatrxX,MatrxY,MatrxZ,color='red'  ) #,'o'
+        #plt.plot_surface(CompoX,CompoY,CompoZ,'-.',color='black') #,'o'
         plt.grid()
         plt.show()   
 
-epsilonYC = 2000/86900
+epsilonYC = 800/86900
 sigmaM = epsilonYC*4670     
 
 matrx = SimpleMaterial("Ortotrop")
@@ -295,7 +318,7 @@ matrx.computeS()
 matrx.computeD()
 
 fibre = SimpleMaterial("VonMisses")
-fibre.setYC([[2000.0]])
+fibre.setYC([[800.0]])
 setattr(fibre, "E", 86900)
 setattr(fibre, "v", 0.22)
 fibre.computeG()
