@@ -77,6 +77,7 @@ class yieldCriterion:
         if type == "VonMisses":     return VonMisses()
         if type == "MaxStrain":     return MaxStrain()
         if type == "Ortotrop":      return Ortotrop()
+        if type == "Drucker":       return Drucker()
         assert 0, "Bad shape creation: " + type
     factory = staticmethod(factory)
 
@@ -101,7 +102,49 @@ class VonMisses(yieldCriterion):
                     - 1
             return alpha
         
-        alphaConv, info = brentq(fun, 0, 1000, full_output=True)
+        alphaConv, info = brentq(fun, 0.0, 10000, full_output=True)
+    
+        return alphaConv
+
+class Drucker(yieldCriterion):
+    def __init__(self):
+        super(Drucker, self).__init__()
+        self.thresshold = None
+
+    def setup(self,data):
+        self.tt = data[0]
+        self.tc = data[1]
+        self.ts = data[2]
+
+    def computeAlpha(self,stress):
+        tt = self.tt
+        tc = self.tc
+        ts = self.ts
+        def fun(x):
+            S = stress*x
+
+            sum1 = (tc[0]+tt[0])/(2*tc[0]*tt[0])
+            sum2 = (tc[1]+tt[1])/(2*tc[1]*tt[1])
+            sum3 = (tc[2]+tt[2])/(2*tc[2]*tt[2])
+            F    = 0.5*(-sum1**2+sum2**2+sum3**2)
+            G    = 0.5*(+sum1**2-sum2**2+sum3**2)
+            H    = 0.5*(+sum1**2+sum2**2-sum3**2)
+            L    = 1/(2*(ts[0])**2)
+            M    = 1/(2*(ts[1])**2)
+            N    = 1/(2*(ts[2])**2)
+            I    = (tc[0]-tt[0])/(2*tc[0]*tt[0])
+            J    = (tc[1]-tt[1])/(2*tc[1]*tt[1])
+            K    = (tc[2]-tt[2])/(2*tc[2]*tt[2])
+
+            alpha = math.sqrt(F*(S[1]-S[2])**2 + G*(S[2]-S[0])**2 + H*(S[0]-S[1])**2 + \
+                    (2*L*S[3]**2) + \
+                    (2*M*S[4]**2) + \
+                    (2*N*S[5]**2)) + \
+                    I*S[0] + J*S[1] + K*S[2] - 1
+
+            return alpha
+        
+        alphaConv, info = brentq(fun, 0.0, 10000, full_output=True)
     
         return alphaConv
 
@@ -207,14 +250,21 @@ class Laminate:
 
         stress = np.zeros(6)
 
-        for angle1 in np.arange(0,70.05,2.0):
+        plt.figure(figsize=(10,10))
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        plt.grid()
+        plt.xlabel("X axis label")
+        plt.ylabel("Y axis label")
+
+        for angle1 in np.arange(0,90.05,2.0):
              
             stress = np.zeros(6)
             module  = 10
             stress[dirZ] = module*math.sin(math.radians(angle1))
             moduleP = module*math.cos(math.radians(angle1))
 
-            for angle2 in np.arange(0,70.05,2.0):
+            for angle2 in np.arange(0,90.05,2.0):
                 #angle = 90-angle
     
                 stress[dirX] = moduleP*math.cos(math.radians(angle2))
@@ -263,7 +313,7 @@ class Laminate:
                 #TensionUltimaMatrx[0] = TensionUltimaMatrx[0]*self.matrxPart
                 #TensionUltimaFibra = (getattr(self.fibre,"stress")*alphaFibre)
                 #TensionUltimaFibra[0] = TensionUltimaFibra[0]*self.fibrePart
-                TensionUltimaMatrx = self.stress*alphaMatrx
+                TensionUltimaMatrx = self.matrx.stress
                 TensionUltimaFibra = self.fibre.stress
     
                 TU = np.array([ TensionUltimaP[0], \
@@ -290,27 +340,35 @@ class Laminate:
                       str(stress[dirX]) + " " + \
                       str(stress[dirY]) )
 
-        plt.figure(figsize=(10,10))
+            ax.scatter(CompoX,CompoY,CompoZ,linewidth=0.2, antialiased=True)
+            plt.show() 
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(FibraX,FibraY,FibraZ,linewidth=0.2, antialiased=True)
-        #ax.scatter(MatrxX,MatrxY,MatrxZ,linewidth=0.2, antialiased=True)
         #ax.scatter(CompoX,CompoY,CompoZ,linewidth=0.2, antialiased=True)
+        #plt.grid()
+        #plt.xlabel("X axis label")
+        #plt.ylabel("Y axis label")
+        #plt.show() 
 
-        ##plt.xlim([750.0,1000.0])
-        ##plt.ylim([20.0,40.0])
-        #plt.plot_surface(FibraX,FibraY,FibraZ,color='green') #,'o'
-        #plt.plot_surface(MatrxX,MatrxY,MatrxZ,color='red'  ) #,'o'
-        #plt.plot_surface(CompoX,CompoY,CompoZ,'-.',color='black') #,'o'
-        plt.grid()
-        plt.show()   
+        #ax.scatter(CompoX,CompoY,CompoZ,linewidth=0.2, antialiased=True)
+        ###plt.xlim([750.0,1000.0])
+        ###plt.ylim([20.0,40.0])
+        ##plt.plot_surface(FibraX,FibraY,FibraZ,color='green') #,'o'
+        ##plt.plot_surface(MatrxX,MatrxY,MatrxZ,color='red'  ) #,'o'
+        ##plt.plot_surface(CompoX,CompoY,CompoZ,'-.',color='black') #,'o'
+        #plt.grid()
+        #plt.xlabel("X axis label")
+        #plt.ylabel("Y axis label")
+        #plt.show()   
 
 epsilonYC = 800/86900
 sigmaM = epsilonYC*4670     
 
-matrx = SimpleMaterial("Ortotrop")
-matrx.setYC([[sigmaM,30.0,30.0,30.0,30.0,30.0]])
+#matrx = SimpleMaterial("Ortotrop")
+#matrx.setYC([[sigmaM,30.0,30.0,30.0,30.0,30.0]])
+#matrx = SimpleMaterial("VonMisses")
+#matrx.setYC([[30.0]])
+matrx = SimpleMaterial("Drucker")
+matrx.setYC([[30.0,30.0,30.0],[-30.0,-30.0,-30.0],[30.0,30.0,30.0]])
 setattr(matrx, "E", 4670)
 setattr(matrx, "v", 0.38)
 matrx.computeG()
